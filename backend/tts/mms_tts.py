@@ -1,16 +1,15 @@
 """
-Telugu Text-to-Speech using Coqui XTTS v2.
+Telugu Text-to-Speech using Facebook MMS-TTS (Massively Multilingual Speech).
 
-Model: tts_models/multilingual/multi-dataset/xtts_v2
+Model: facebook/mms-tts-tel  — natively supports Telugu (ISO 639-3: tel)
 
-Full-duplex phone-call mode changes vs. previous version:
-- synthesize_stream() now yields raw Int16 PCM bytes (no WAV header) after
-  the first chunk, so the browser can receive and schedule them immediately
-  without container parsing overhead.
-- The first chunk still has no WAV header — the client knows the format from
-  the "ready" JSON message sent at connection time (Int16, 22050Hz, mono).
-- XTTS native output is 24kHz float32; resampled to 22050Hz then Int16.
-- Sentence boundary chunking retained: split at ।?!.\n with min 15 chars.
+Advantages over XTTS v2:
+- Native Telugu language support (XTTS only supports Hindi as closest Indian language)
+- Much faster synthesis (~10x): single forward pass, no autoregressive decoding
+- Lower VRAM (~200MB vs ~6GB for XTTS)
+- 16 kHz output (matches STT input rate)
+
+Output: raw Int16 PCM at 16000 Hz mono (no WAV header).
 """
 
 import asyncio
@@ -21,38 +20,36 @@ from typing import AsyncGenerator, Optional
 import numpy as np
 import torch
 from loguru import logger
-from TTS.api import TTS
+from transformers import VitsModel, AutoTokenizer
 
-from backend.config import settings, get_torch_dtype
+from backend.config import settings
 
 
-# Telugu / Latin sentence boundary pattern.
-# Matches after: Devanagari danda (।), full stop, ?, !, newline.
+# Sentence boundary pattern for Telugu + Latin punctuation
 _SENTENCE_RE = re.compile(r"(?<=[।.?!\n])\s*")
 
-# Minimum characters to accumulate before synthesizing a chunk.
+# Minimum chars to accumulate before synthesizing
 _MIN_CHUNK_CHARS = 8
 
-# XTTS v2 native output sample rate
-_XTTS_NATIVE_SR = 24000
+_MMS_MODEL_ID = "facebook/mms-tts-tel"
+_MMS_SAMPLE_RATE = 16000
 
 
 class TeluguTTS:
     """
-    Wraps Coqui XTTS v2 for streaming Telugu synthesis.
+    Wraps facebook/mms-tts-tel for streaming Telugu synthesis.
 
     Full-duplex mode usage:
         async for pcm_bytes in tts.synthesize_stream(token_generator, interrupt_event):
-            await ws.send_bytes(pcm_bytes)   # raw Int16 PCM, 22050Hz mono
+            await ws.send_bytes(pcm_bytes)   # raw Int16 PCM, 16000Hz mono
 
-    Each yielded chunk is raw signed 16-bit little-endian PCM at TTS_SAMPLE_RATE.
+    Each yielded chunk is raw signed 16-bit little-endian PCM at 16000 Hz.
     No WAV headers are included; the client decodes raw samples directly.
     """
 
     def __init__(self):
-        self._tts: Optional[TTS] = None
-        self._speaker_wav: Optional[str] = None
-        self._speaker_name: Optional[str] = None
+        self._model: Optional[VitsModel] = None
+        self._tokenizer = None
         self._device: str = settings.CUDA_DEVICE
 
     # ------------------------------------------------------------------ #
@@ -60,28 +57,17 @@ class TeluguTTS:
     # ------------------------------------------------------------------ #
 
     def load(self) -> None:
-        """Load XTTS v2 onto GPU. Call once at startup."""
-        logger.info(f"Loading TTS model: {settings.TTS_MODEL}")
+        """Load MMS-TTS Telugu onto GPU. Call once at startup."""
+        logger.info(f"Loading TTS model: {_MMS_MODEL_ID}")
         start = time.perf_counter()
 
-        self._tts = TTS(
-            model_name=settings.TTS_MODEL,
-            progress_bar=True,
-            gpu=True,
-        )
-        self._tts.to(self._device)
-
-        if settings.TTS_REFERENCE_AUDIO:
-            self._speaker_wav = settings.TTS_REFERENCE_AUDIO
-            self._speaker_name = None
-            logger.info(f"TTS using reference audio: {self._speaker_wav}")
-        else:
-            self._speaker_wav = None
-            self._speaker_name = settings.TTS_REFERENCE_SPEAKER
-            logger.info(f"TTS using built-in speaker: {self._speaker_name}")
+        self._tokenizer = AutoTokenizer.from_pretrained(_MMS_MODEL_ID)
+        self._model = VitsModel.from_pretrained(_MMS_MODEL_ID)
+        self._model = self._model.to(self._device)
+        self._model.eval()
 
         elapsed = (time.perf_counter() - start) * 1000
-        logger.info(f"TTS model loaded in {elapsed:.0f}ms")
+        logger.info(f"TTS model loaded in {elapsed:.0f}ms (MMS-TTS Telugu, {_MMS_SAMPLE_RATE}Hz)")
         self._warmup()
 
     def _warmup(self) -> None:
@@ -104,16 +90,10 @@ class TeluguTTS:
         Consume an async token generator and yield raw Int16 PCM audio chunks
         at sentence boundaries.
 
-        Args:
-            text_generator:  Async generator of text tokens from the LLM.
-            interrupt_event: If set, synthesis aborts at the next sentence
-                             boundary.
-
         Yields:
-            bytes: Raw signed 16-bit little-endian PCM at settings.TTS_SAMPLE_RATE.
-                   No WAV header.
+            bytes: Raw signed 16-bit little-endian PCM at 16000 Hz. No WAV header.
         """
-        if not self._tts:
+        if not self._model:
             raise RuntimeError("TTS model not loaded. Call load() first.")
 
         buffer = ""
@@ -131,7 +111,6 @@ class TeluguTTS:
             if len(sentences) < 2:
                 continue
 
-            # Complete sentences are all but the last fragment
             complete = sentences[:-1]
             buffer = sentences[-1]
 
@@ -154,7 +133,7 @@ class TeluguTTS:
                         first_chunk_logged = True
                     yield pcm_bytes
 
-        # Flush remaining buffer after generator exhausted
+        # Flush remaining buffer
         remainder = buffer.strip()
         if remainder and len(remainder) >= 3:
             if not (interrupt_event and interrupt_event.is_set()):
@@ -165,11 +144,8 @@ class TeluguTTS:
                     yield pcm_bytes
 
     async def synthesize_text(self, text: str) -> bytes:
-        """
-        One-shot synthesis of a complete text string.
-        Returns raw Int16 PCM bytes at TTS_SAMPLE_RATE.
-        """
-        if not self._tts:
+        """One-shot synthesis. Returns raw Int16 PCM bytes at 16000 Hz."""
+        if not self._model:
             raise RuntimeError("TTS model not loaded. Call load() first.")
         return await asyncio.get_event_loop().run_in_executor(
             None, self._synthesize_sync, text
@@ -180,51 +156,25 @@ class TeluguTTS:
     # ------------------------------------------------------------------ #
 
     def _synthesize_sync(self, text: str) -> Optional[bytes]:
-        """
-        Synchronous synthesis of a single sentence.
-        Returns raw Int16 PCM bytes at settings.TTS_SAMPLE_RATE, or None on error.
-        No WAV header included.
-        """
+        """Synchronous synthesis of a single sentence → raw Int16 PCM bytes."""
         if not text or not text.strip():
             return None
         try:
             start = time.perf_counter()
 
-            with torch.inference_mode():
-                if self._speaker_wav:
-                    wav = self._tts.tts(
-                        text=text,
-                        speaker_wav=self._speaker_wav,
-                        language=settings.TTS_LANGUAGE,
-                    )
-                else:
-                    wav = self._tts.tts(
-                        text=text,
-                        speaker=self._speaker_name,
-                        language=settings.TTS_LANGUAGE,
-                    )
+            inputs = self._tokenizer(text, return_tensors="pt")
+            inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
-            # wav is a list of floats or numpy array from XTTS
-            wav_np = np.array(wav, dtype=np.float32)
+            with torch.no_grad():
+                output = self._model(**inputs).waveform
+
+            wav_np = output.squeeze().cpu().float().numpy()
             wav_np = np.clip(wav_np, -1.0, 1.0)
-
-            # Resample 24kHz → 22050Hz
-            if _XTTS_NATIVE_SR != settings.TTS_SAMPLE_RATE:
-                import librosa
-                wav_np = librosa.resample(
-                    wav_np,
-                    orig_sr=_XTTS_NATIVE_SR,
-                    target_sr=settings.TTS_SAMPLE_RATE,
-                )
-
-            # Convert float32 → int16 PCM
             pcm_int16 = (wav_np * 32767).astype(np.int16)
-
-            # Return raw bytes (no WAV header) — client decodes raw samples
             raw_bytes = pcm_int16.tobytes()
 
             elapsed = (time.perf_counter() - start) * 1000
-            audio_ms = len(pcm_int16) / settings.TTS_SAMPLE_RATE * 1000
+            audio_ms = len(pcm_int16) / _MMS_SAMPLE_RATE * 1000
             logger.debug(
                 f"TTS synthesized {len(text)} chars / {audio_ms:.0f}ms audio "
                 f"in {elapsed:.0f}ms ({len(raw_bytes)} bytes)"
@@ -241,9 +191,6 @@ class TeluguTTS:
 # ------------------------------------------------------------------ #
 
 def _split_at_boundaries(text: str) -> list[str]:
-    """
-    Split text at Telugu/Latin sentence boundaries.
-    Returns a list of fragments; the last may be incomplete.
-    """
+    """Split text at Telugu/Latin sentence boundaries."""
     parts = _SENTENCE_RE.split(text)
     return [p for p in parts if p] or [text]

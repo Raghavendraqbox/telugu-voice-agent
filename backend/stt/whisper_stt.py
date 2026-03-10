@@ -22,7 +22,6 @@ import numpy as np
 import soundfile as sf
 import librosa
 from faster_whisper import WhisperModel
-from faster_whisper.vad import VadOptions
 from loguru import logger
 
 from backend.config import settings
@@ -147,13 +146,7 @@ class TeluguSTT:
                 beam_size=5,
                 best_of=5,
                 temperature=0.0,
-                vad_filter=True,
-                vad_parameters=VadOptions(
-                    threshold=0.4,
-                    min_speech_duration_ms=200,
-                    min_silence_duration_ms=300,
-                    speech_pad_ms=100,
-                ),
+                vad_filter=False,
                 word_timestamps=False,
                 chunk_length=5,
                 condition_on_previous_text=False,

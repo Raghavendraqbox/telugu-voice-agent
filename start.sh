@@ -38,6 +38,9 @@ python3 -c "import torch; assert torch.cuda.is_available(), 'CUDA not available!
 
 mkdir -p logs
 
+# Accept Coqui TTS Terms of Service non-interactively
+export COQUI_TOS_AGREED=1
+
 echo "Starting FastAPI server on http://0.0.0.0:8000"
 echo "Open http://localhost:8000 in your browser to use the voice agent."
 echo "Press Ctrl+C to stop."

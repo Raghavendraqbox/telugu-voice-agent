@@ -1,7 +1,7 @@
 """
 LLM inference engine using vLLM AsyncLLMEngine.
 
-Model: meta-llama/Meta-Llama-3-8B-Instruct
+Model: Qwen/Qwen2.5-7B-Instruct
 Runs streaming token generation so TTS can start synthesizing while the
 LLM is still generating the rest of the response.
 
@@ -121,7 +121,7 @@ class LLMEngine:
             top_p=settings.LLM_TOP_P,
             max_tokens=settings.LLM_MAX_TOKENS,
             repetition_penalty=settings.LLM_REPETITION_PENALTY,
-            stop=["<|eot_id|>", "<|end_of_text|>", "</s>"],
+            stop=["<|im_end|>", "<|endoftext|>", "</s>"],
         )
 
         request_id = str(uuid.uuid4())
@@ -167,22 +167,16 @@ class LLMEngine:
 
     def _build_chat_prompt(self, messages: list[dict]) -> str:
         """
-        Format messages list into Llama-3 chat template.
+        Format messages list into Qwen2.5 chat template (ChatML format).
 
-        Llama-3-Instruct uses the following special tokens:
-          <|begin_of_text|>
-          <|start_header_id|>role<|end_header_id|>
-          content
-          <|eot_id|>
+        Qwen2.5-Instruct uses:
+          <|im_start|>role\ncontent<|im_end|>\n
         """
-        prompt = "<|begin_of_text|>"
+        prompt = ""
         for msg in messages:
             role = msg["role"]
             content = msg["content"]
-            prompt += (
-                f"<|start_header_id|>{role}<|end_header_id|>\n\n"
-                f"{content}<|eot_id|>"
-            )
-        # Append the assistant header to prime generation
-        prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
+            prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
+        # Prime assistant generation
+        prompt += "<|im_start|>assistant\n"
         return prompt

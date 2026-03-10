@@ -206,9 +206,12 @@ class VoicePipeline:
         result = self.vad.process_chunk(pcm_bytes)
 
         # Barge-in: new speech detected while agent is speaking → interrupt
+        # Add 2s cooldown to prevent echo/mic noise from immediately killing TTS
         if result.speech_started and self._state == ConnectionState.SPEAKING:
-            logger.info("Barge-in detected — interrupting agent")
-            self._interrupt_event.set()
+            cooldown = getattr(self, '_speaking_start_time', 0)
+            if time.time() - cooldown > 2.0:
+                logger.info("Barge-in detected — interrupting agent")
+                self._interrupt_event.set()
 
         # VAD indicator update: send vad_state "listening" vs "silent" for UI
         speech_active = result.is_speech
@@ -316,6 +319,7 @@ class VoicePipeline:
         # ---- TTS streaming ----
         self._interrupt_event.clear()
         self._state = ConnectionState.SPEAKING
+        self._speaking_start_time = time.time()
         await self._send_vad_state(ws, "speaking")
 
         tts_first_sent = False

@@ -1,535 +1,299 @@
-/* ================================================================
-   Telugu Voice Agent — Full-Duplex Phone Call Mode
-   Dark theme, saffron accent #FF9933
-================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Reset & box model ──────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-/* ── CSS custom properties ──────────────────────────────────── */
 :root {
-  --bg-0:          #0f0f0f;
-  --bg-1:          #1a1a1a;
-  --bg-2:          #242424;
-  --bg-3:          #2e2e2e;
-  --accent:        #FF9933;
-  --accent-dim:    #cc7a28;
-  --accent-glow:   rgba(255, 153, 51, 0.35);
-  --green:         #50c080;
-  --green-glow:    rgba(80, 192, 128, 0.3);
-  --yellow:        #f0c040;
-  --text-0:        #f0f0f0;
-  --text-1:        #b0b0b0;
-  --text-2:        #707070;
-  --user-bubble:   #1e3a5f;
-  --agent-bubble:  #1e3320;
-  --error-color:   #e05050;
-  --radius-sm:     6px;
-  --radius-md:     12px;
-  --radius-lg:     20px;
-  --transition:    0.22s ease;
-  --font-body:     'Segoe UI', 'Noto Sans Telugu', system-ui, sans-serif;
-  --font-mono:     'JetBrains Mono', 'Consolas', monospace;
+  --bg: #0a0a0a;
+  --bg-2: #141414;
+  --bg-3: #222;
+  --accent: #FF9933;
+  --accent-glow: rgba(255,153,51,0.3);
+  --green: #4caf7d;
+  --green-glow: rgba(76,175,125,0.3);
+  --yellow: #f0c040;
+  --red: #e53935;
+  --text-0: #f0f0f0;
+  --text-1: #aaa;
+  --text-2: #555;
+  --font: 'Segoe UI', 'Noto Sans Telugu', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* ── Base ───────────────────────────────────────────────────── */
-html, body { height: 100%; }
-
-body {
-  font-family: var(--font-body);
-  background: var(--bg-0);
+html, body {
+  height: 100%;
+  background: var(--bg);
   color: var(--text-0);
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  line-height: 1.55;
-}
-
-/* ── Scrollbar ──────────────────────────────────────────────── */
-::-webkit-scrollbar         { width: 6px; }
-::-webkit-scrollbar-track   { background: var(--bg-1); }
-::-webkit-scrollbar-thumb   { background: var(--bg-3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
-
-/* ================================================================
-   Header
-================================================================ */
-.app-header {
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--bg-3);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-inner {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.logo-icon {
-  font-size: 28px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.app-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 0.01em;
-}
-
-.app-subtitle {
-  font-size: 11px;
-  color: var(--text-2);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.connection-area {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Connection dot */
-.conn-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  transition: background var(--transition);
-}
-.conn-dot.disconnected { background: var(--text-2); }
-.conn-dot.connecting   { background: var(--yellow); animation: blink 1s infinite; }
-.conn-dot.connected    { background: var(--green); }
-.conn-dot.error        { background: var(--error-color); }
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
-}
-
-/* ================================================================
-   Buttons
-================================================================ */
-.btn {
-  cursor: pointer;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  transition: background var(--transition), transform 0.1s;
-  user-select: none;
-}
-.btn:active { transform: scale(0.97); }
-
-.btn-connect {
-  background: var(--accent);
-  color: #000;
-  padding: 8px 20px;
-}
-.btn-connect:hover { background: var(--accent-dim); }
-
-.btn-disconnect {
-  background: var(--bg-3);
-  color: var(--text-1);
-  padding: 8px 20px;
-}
-.btn-disconnect:hover { background: #3a3a3a; }
-
-.btn-ghost {
-  background: transparent;
-  color: var(--text-2);
-  padding: 4px 10px;
-  border: 1px solid var(--bg-3);
-}
-.btn-ghost:hover { color: var(--text-1); border-color: var(--text-2); }
-
-.btn-sm { font-size: 12px; }
-
-/* ================================================================
-   Main layout
-================================================================ */
-.app-main {
-  flex: 1;
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 20px;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  min-height: 0;
-}
-
-/* ================================================================
-   Panels
-================================================================ */
-.panel {
-  background: var(--bg-1);
-  border: 1px solid var(--bg-3);
-  border-radius: var(--radius-lg);
+  font-family: var(--font);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.panel-header {
+/* Status bar */
+.status-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px 10px;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-2);
   border-bottom: 1px solid var(--bg-3);
+  font-size: 13px;
+  color: var(--text-1);
+  flex-shrink: 0;
 }
 
-.panel-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.conn-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-2);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.conn-dot.connecting { background: var(--yellow); animation: blink 1s infinite; }
+.conn-dot.connected  { background: var(--green); }
+.conn-dot.error      { background: var(--red); }
+.conn-dot.disconnected { background: var(--text-2); }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+#status-text { flex: 1; font-weight: 500; }
+
+.latency-strip { display: flex; gap: 12px; margin-left: auto; }
+.lat-item {
+  font-size: 11px; color: var(--text-2);
+  font-family: var(--font-mono);
+}
+.lat-item span { color: var(--text-1); margin-left: 3px; }
+.lat-item.accent span { color: var(--accent); }
+
+/* Call area */
+.call-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px;
+  min-height: 0;
 }
 
-/* ================================================================
-   Transcript panel
-================================================================ */
-.transcript-panel { min-height: 0; }
+.party {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.party-name {
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+/* Avatar circle */
+.avatar {
+  position: relative;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 2px solid var(--bg-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-1);
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+
+.avatar-icon { width: 52px; height: 52px; z-index: 1; }
+.mic-icon    { width: 32px; height: 32px; }
+
+/* Agent states */
+.avatar.user-speaking {
+  border-color: var(--accent);
+  background: rgba(255,153,51,0.08);
+  box-shadow: 0 0 0 8px var(--accent-glow);
+}
+.avatar.agent-speaking {
+  border-color: var(--green);
+  background: rgba(76,175,125,0.08);
+  box-shadow: 0 0 0 8px var(--green-glow);
+}
+.avatar.processing {
+  border-color: var(--yellow);
+  animation: spin-ring 1.2s linear infinite;
+}
+@keyframes spin-ring {
+  from { box-shadow: 0 -6px 0 0 var(--yellow); }
+  25%  { box-shadow:  6px 0  0 0 var(--yellow); }
+  50%  { box-shadow:  0  6px 0 0 var(--yellow); }
+  75%  { box-shadow: -6px 0  0 0 var(--yellow); }
+  to   { box-shadow: 0 -6px 0 0 var(--yellow); }
+}
+
+/* User VAD ring */
+.user-avatar { cursor: default; }
+.user-avatar.active {
+  border-color: var(--accent);
+  background: rgba(255,153,51,0.1);
+  color: var(--accent);
+  box-shadow: 0 0 0 8px var(--accent-glow);
+  animation: vad-pulse 1.2s ease-out infinite;
+}
+@keyframes vad-pulse {
+  0%  { box-shadow: 0 0 0 0   var(--accent-glow); }
+  70% { box-shadow: 0 0 0 14px rgba(255,153,51,0); }
+  100%{ box-shadow: 0 0 0 0   rgba(255,153,51,0); }
+}
+
+/* Speaking bars (on agent avatar) */
+.speaking-bars {
+  position: absolute;
+  bottom: 8px;
+  display: flex; gap: 3px; align-items: flex-end; height: 20px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.avatar.agent-speaking .speaking-bars { opacity: 1; }
+.bar {
+  width: 3px; background: var(--green); border-radius: 2px;
+  animation: bar-bounce 0.7s ease-in-out infinite;
+}
+.bar:nth-child(1){animation-delay:0s;   height:6px}
+.bar:nth-child(2){animation-delay:.12s; height:13px}
+.bar:nth-child(3){animation-delay:.24s; height:20px}
+.bar:nth-child(4){animation-delay:.12s; height:13px}
+.bar:nth-child(5){animation-delay:0s;   height:6px}
+@keyframes bar-bounce { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1)} }
+
+/* Center panel: waveform + transcript */
+.center-area {
+  flex: 1;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  align-items: stretch;
+}
+
+#visualizer {
+  width: 100%; height: 64px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  display: block;
+}
 
 .transcript-scroll {
   flex: 1;
+  min-height: 200px;
+  max-height: 100%;
   overflow-y: auto;
-  padding: 16px 18px;
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
+.transcript-scroll::-webkit-scrollbar{width:4px}
+.transcript-scroll::-webkit-scrollbar-track{background:transparent}
+.transcript-scroll::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:2px}
 
 .transcript-empty {
-  color: var(--text-2);
-  font-size: 14px;
-  text-align: center;
-  margin: auto;
-  padding: 40px 0;
+  color: var(--text-2); font-size: 13px;
+  text-align: center; margin: auto; padding: 20px 0;
 }
 
 /* Chat bubbles */
 .chat-turn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  animation: fade-in 0.25s ease;
+  display: flex; flex-direction: column; gap: 3px;
+  animation: fadein 0.2s ease;
 }
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
+@keyframes fadein { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
 .chat-turn.user  { align-items: flex-end; }
 .chat-turn.agent { align-items: flex-start; }
-
 .bubble-role {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-2);
-  padding: 0 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-2); padding: 0 3px;
 }
-
 .bubble {
-  max-width: 88%;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  line-height: 1.6;
+  max-width: 85%; padding: 9px 13px;
+  border-radius: 12px; font-size: 14px; line-height: 1.55;
 }
-
-.chat-turn.user  .bubble { background: var(--user-bubble); }
-.chat-turn.agent .bubble { background: var(--agent-bubble); }
-
-/* Typing indicator */
+.chat-turn.user  .bubble { background: #1e3a5f; }
+.chat-turn.agent .bubble { background: #1a2e1e; }
 .bubble.typing {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  padding: 12px 16px;
+  display: flex; gap: 5px; align-items: center; padding: 11px 14px;
 }
 .typing-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--text-1);
-  animation: typing-bounce 1.2s infinite ease-in-out;
+  animation: tdot 1.2s infinite ease-in-out;
 }
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes tdot { 0%,80%,100%{transform:scale(.8);opacity:.5} 40%{transform:scale(1.1);opacity:1} }
 
-@keyframes typing-bounce {
-  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-  40%           { transform: scale(1.1); opacity: 1; }
-}
-
-/* ================================================================
-   Controls panel
-================================================================ */
-.controls-panel {
-  align-items: center;
-  padding: 24px 18px;
-  gap: 22px;
-}
-
-/* ----------------------------------------------------------------
-   Agent avatar
----------------------------------------------------------------- */
-.avatar-area {
+/* End call button */
+.call-controls {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.agent-avatar {
-  position: relative;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: var(--bg-2);
-  border: 2px solid var(--bg-3);
-  color: var(--text-1);
-  display: flex;
-  align-items: center;
   justify-content: center;
-  transition: border-color var(--transition), box-shadow var(--transition),
-              background var(--transition);
+  align-items: center;
+  padding: 20px;
+  flex-shrink: 0;
 }
 
-/* State: listening (speech detected — orange glow) */
-.agent-avatar.user-speaking {
-  border-color: var(--accent);
-  background: rgba(255, 153, 51, 0.1);
-  box-shadow: 0 0 0 6px var(--accent-glow);
-}
-
-/* State: speaking (agent TTS — green glow) */
-.agent-avatar.agent-speaking {
-  border-color: var(--green);
-  background: rgba(80, 192, 128, 0.1);
-  box-shadow: 0 0 0 6px var(--green-glow);
-}
-
-/* State: processing (yellow spinner) */
-.agent-avatar.processing {
-  border-color: var(--yellow);
-  animation: spin-border 1s linear infinite;
-}
-
-@keyframes spin-border {
-  0%   { box-shadow: 0 -4px 0 0 var(--yellow); }
-  25%  { box-shadow:  4px 0  0 0 var(--yellow); }
-  50%  { box-shadow:  0  4px 0 0 var(--yellow); }
-  75%  { box-shadow: -4px 0  0 0 var(--yellow); }
-  100% { box-shadow:  0 -4px 0 0 var(--yellow); }
-}
-
-.avatar-icon {
-  width: 44px;
-  height: 44px;
-  z-index: 1;
-}
-
-/* Speaking bars overlay (shown when agent is speaking) */
-.speaking-bars {
-  position: absolute;
-  bottom: 6px;
-  display: flex;
-  gap: 3px;
-  align-items: flex-end;
-  height: 18px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.agent-avatar.agent-speaking .speaking-bars {
-  opacity: 1;
-}
-
-.speaking-bars .bar {
-  width: 3px;
+/* Green start-call button */
+.start-call-btn {
+  width: 68px; height: 68px;
+  border-radius: 50%;
   background: var(--green);
-  border-radius: 2px;
-  animation: bar-bounce 0.8s ease-in-out infinite;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #000;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 20px rgba(76,175,125,0.5);
+  animation: pulse-green 2s ease-in-out infinite;
 }
-.speaking-bars .bar:nth-child(1) { animation-delay: 0.0s; height: 6px; }
-.speaking-bars .bar:nth-child(2) { animation-delay: 0.1s; height: 12px; }
-.speaking-bars .bar:nth-child(3) { animation-delay: 0.2s; height: 18px; }
-.speaking-bars .bar:nth-child(4) { animation-delay: 0.1s; height: 12px; }
-.speaking-bars .bar:nth-child(5) { animation-delay: 0.0s; height: 6px; }
-
-@keyframes bar-bounce {
-  0%, 100% { transform: scaleY(0.4); }
-  50%       { transform: scaleY(1.0); }
-}
-
-/* ----------------------------------------------------------------
-   Status text
----------------------------------------------------------------- */
-.status-text {
-  font-size: 14px;
-  color: var(--text-2);
-  text-align: center;
-  font-weight: 500;
-  min-height: 20px;
-  transition: color var(--transition);
-}
-.status-text.listening  { color: var(--accent); }
-.status-text.processing { color: var(--yellow); }
-.status-text.speaking   { color: var(--green); }
-.status-text.error      { color: var(--error-color); }
-
-/* ----------------------------------------------------------------
-   VAD indicator (green pulse ring when voice detected)
----------------------------------------------------------------- */
-.vad-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+.start-call-btn:hover { background: #3d9c67; animation: none; }
+.start-call-btn:active { transform: scale(0.93); }
+@keyframes pulse-green {
+  0%,100% { box-shadow: 0 4px 20px rgba(76,175,125,0.5); }
+  50%      { box-shadow: 0 4px 30px rgba(76,175,125,0.8); }
 }
 
-.vad-ring {
-  position: relative;
-  width: 52px;
-  height: 52px;
+.end-call-btn {
+  width: 68px; height: 68px;
   border-radius: 50%;
-  background: var(--bg-2);
-  border: 2px solid var(--bg-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  transition: border-color var(--transition), background var(--transition),
-              box-shadow var(--transition);
+  background: var(--red);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 20px rgba(229,57,53,0.5);
 }
+.end-call-btn:hover { background: #c62828; }
+.end-call-btn:active { transform: scale(0.93); }
 
-/* Active VAD (user voice detected) */
-.vad-ring.active {
-  border-color: var(--accent);
-  background: rgba(255, 153, 51, 0.15);
-  color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-glow);
-  animation: vad-pulse 1.2s ease-out infinite;
+/* Reconnect button (shown when call ends) */
+.reconnect-btn {
+  background: var(--green);
+  color: #000;
+  border: none; cursor: pointer;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 15px; font-weight: 700;
+  font-family: var(--font);
+  display: none;
+  transition: background 0.2s;
 }
+.reconnect-btn.visible { display: block; }
+.reconnect-btn:hover { background: #3d9c67; }
 
-@keyframes vad-pulse {
-  0%   { box-shadow: 0 0 0 0   var(--accent-glow); }
-  70%  { box-shadow: 0 0 0 10px rgba(255,153,51,0); }
-  100% { box-shadow: 0 0 0 0   rgba(255,153,51,0); }
-}
-
-.mic-icon-sm {
-  width: 22px;
-  height: 22px;
-}
-
-.vad-label {
-  font-size: 11px;
-  color: var(--text-2);
-  letter-spacing: 0.05em;
-  text-align: center;
-  transition: color var(--transition);
-}
-
-.vad-label.active { color: var(--accent); }
-
-/* ----------------------------------------------------------------
-   Audio visualiser
----------------------------------------------------------------- */
-.visualizer {
-  width: 100%;
-  height: 60px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-2);
-}
-
-/* ================================================================
-   Latency strip
-================================================================ */
-.latency-strip {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
-  width: 100%;
-}
-
-.latency-badge {
-  background: var(--bg-2);
-  border: 1px solid var(--bg-3);
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 56px;
-}
-
-.latency-badge.accent {
-  border-color: var(--accent-dim);
-  background: rgba(255, 153, 51, 0.07);
-}
-
-.badge-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-2);
-}
-
-.badge-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-1);
-  font-family: var(--font-mono);
-}
-
-.latency-badge.accent .badge-value { color: var(--accent); }
-
-/* ================================================================
-   Footer
-================================================================ */
-.app-footer {
-  text-align: center;
-  padding: 10px 20px;
-  font-size: 11px;
-  color: var(--text-2);
-  border-top: 1px solid var(--bg-2);
-  letter-spacing: 0.05em;
-}
-
-/* ================================================================
-   Responsive — single column on narrow screens
-================================================================ */
-@media (max-width: 720px) {
-  .app-main {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    padding: 12px;
-  }
-  .controls-panel { order: -1; }
-  .transcript-panel { min-height: 280px; }
+/* Mobile */
+@media (max-width: 640px) {
+  .call-area { flex-direction: column; gap: 16px; padding: 16px; }
+  .party { flex-direction: row; gap: 12px; }
+  .avatar { width: 80px; height: 80px; }
+  .avatar-icon { width: 36px; height: 36px; }
+  .center-area { max-width: 100%; }
+  .latency-strip { display: none; }
 }

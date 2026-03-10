@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Model identifiers
     # ------------------------------------------------------------------ #
-    STT_MODEL: str = "vasista22/whisper-telugu-base"
-    LLM_MODEL: str = "meta-llama/Meta-Llama-3-8B-Instruct"
+    STT_MODEL: str = "/workspace/telugu-voice-agent/models/whisper-telugu-base-ct2"
+    LLM_MODEL: str = "Qwen/Qwen2.5-7B-Instruct"
     TTS_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
 
     # ------------------------------------------------------------------ #
@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # STT expects 16 kHz mono PCM
     STT_SAMPLE_RATE: int = 16000
-    # XTTS v2 outputs 24 kHz; we resample to 22050 Hz for browser compat
-    TTS_SAMPLE_RATE: int = 22050
+    # MMS-TTS outputs 16 kHz natively (matches STT input rate)
+    TTS_SAMPLE_RATE: int = 16000
     # AudioWorklet sends 20ms chunks of Int16 PCM
     AUDIO_CHUNK_MS: int = 20
     # Samples per 20ms chunk at 16kHz: 320
@@ -58,13 +58,13 @@ class Settings(BaseSettings):
     # VAD (Silero VAD) settings
     # ------------------------------------------------------------------ #
     # Speech probability threshold to enter LISTENING state
-    VAD_SPEECH_THRESHOLD: float = 0.6
+    VAD_SPEECH_THRESHOLD: float = 0.15
     # Probability below which we consider a frame silent (hysteresis)
-    VAD_SILENCE_THRESHOLD: float = 0.35
+    VAD_SILENCE_THRESHOLD: float = 0.05
     # Consecutive ms of speech required to confirm utterance start
-    VAD_MIN_SPEECH_DURATION_MS: int = 300
+    VAD_MIN_SPEECH_DURATION_MS: int = 200
     # Consecutive ms of silence after speech to trigger end-of-utterance
-    VAD_SILENCE_DURATION_MS: int = 500
+    VAD_SILENCE_DURATION_MS: int = 300
     # Maximum utterance length before forced processing (ms)
     VAD_MAX_UTTERANCE_MS: int = 15000
 
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     # LLM sampling parameters
     # ------------------------------------------------------------------ #
     LLM_TEMPERATURE: float = 0.7
-    LLM_MAX_TOKENS: int = 256
+    LLM_MAX_TOKENS: int = 150
     LLM_TOP_P: float = 0.95
     LLM_REPETITION_PENALTY: float = 1.1
     # Keep last N turns (each turn = 1 user + 1 assistant message)
@@ -98,13 +98,13 @@ class Settings(BaseSettings):
     # If None, XTTS uses its built-in Telugu speaker embedding.
     # ------------------------------------------------------------------ #
     TTS_REFERENCE_AUDIO: Optional[str] = None
-    TTS_REFERENCE_SPEAKER: str = "Claribel Dervla"
+    TTS_REFERENCE_SPEAKER: str = "Kumar Dahl"
 
     # ------------------------------------------------------------------ #
     # Telugu language codes
     # ------------------------------------------------------------------ #
     STT_LANGUAGE: str = "te"
-    TTS_LANGUAGE: str = "te"
+    TTS_LANGUAGE: str = "hi"  # XTTS v2 doesn't support 'te'; use 'hi' for Indian accent
     LLM_RESPONSE_LANGUAGE: str = "Telugu"
 
     class Config:

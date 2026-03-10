@@ -31,7 +31,7 @@ from backend.config import settings, get_gpu_info, is_cuda_available
 from backend.vad.silero_vad_engine import VADEngine
 from backend.stt.whisper_stt import TeluguSTT
 from backend.llm.vllm_engine import LLMEngine
-from backend.tts.xtts_tts import TeluguTTS
+from backend.tts.mms_tts import TeluguTTS
 from backend.pipeline.voice_pipeline import VoicePipeline
 
 
@@ -41,7 +41,7 @@ from backend.pipeline.voice_pipeline import VoicePipeline
 logger.remove()
 logger.add(
     sys.stderr,
-    level="INFO",
+    level="DEBUG",
     format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | {message}",
 )
 logger.add(

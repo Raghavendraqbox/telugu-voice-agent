@@ -3,119 +3,78 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Telugu Voice Agent | తెలుగు వాయిస్ అసిస్టెంట్</title>
+  <title>Telugu Voice Agent</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- ============================================================
-       Header
-  ============================================================ -->
-  <header class="app-header">
-    <div class="header-inner">
-      <span class="logo-icon">&#127908;</span>
-      <div>
-        <h1 class="app-title">తెలుగు వాయిస్ అసిస్టెంట్</h1>
-        <p class="app-subtitle">Full-Duplex Phone Call Mode</p>
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="conn-dot" id="connection-dot"></span>
+    <span id="status-text">Tap the green button to start the call</span>
+    <div class="latency-strip">
+      <span class="lat-item">STT <span id="lat-stt">--</span></span>
+      <span class="lat-item">LLM <span id="lat-llm">--</span></span>
+      <span class="lat-item">TTS <span id="lat-tts">--</span></span>
+      <span class="lat-item accent">Total <span id="lat-total">--</span></span>
+    </div>
+  </div>
+
+  <!-- Call area -->
+  <main class="call-area">
+    <!-- Agent side -->
+    <div class="party agent-party">
+      <div id="agent-avatar" class="avatar">
+        <svg viewBox="0 0 48 48" fill="none" class="avatar-icon">
+          <circle cx="24" cy="18" r="10" stroke="currentColor" stroke-width="2.5"/>
+          <path d="M8 44c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <div class="speaking-bars" id="speaking-bars">
+          <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+          <span class="bar"></span><span class="bar"></span>
+        </div>
       </div>
-      <div class="connection-area">
-        <span id="connection-dot" class="conn-dot disconnected" title="Connection status"></span>
-        <button id="connect-btn" class="btn btn-connect">Connect</button>
+      <p class="party-name">తెలుగు అసిస్టెంట్</p>
+    </div>
+
+    <!-- Center: waveform + transcript -->
+    <div class="center-area">
+      <canvas id="visualizer" width="320" height="64"></canvas>
+      <div id="transcript" class="transcript-scroll">
+        <div class="transcript-empty">కాల్ ప్రారంభించడానికి క్రింది బటన్ నొక్కండి…</div>
       </div>
     </div>
-  </header>
 
-  <!-- ============================================================
-       Main layout
-  ============================================================ -->
-  <main class="app-main">
-
-    <!-- Transcript panel -->
-    <section class="panel transcript-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">Conversation</h2>
-        <button id="clear-btn" class="btn btn-ghost btn-sm">Clear</button>
+    <!-- User side -->
+    <div class="party user-party">
+      <div id="vad-ring" class="avatar user-avatar">
+        <svg viewBox="0 0 24 24" fill="none" class="mic-icon"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
       </div>
-      <div id="transcript" class="transcript-scroll">
-        <div class="transcript-empty">
-          Connect and start speaking in Telugu…
-        </div>
-      </div>
-    </section>
-
-    <!-- Controls panel -->
-    <section class="panel controls-panel">
-
-      <!-- Agent avatar -->
-      <div class="avatar-area">
-        <div id="agent-avatar" class="agent-avatar">
-          <svg class="avatar-icon" viewBox="0 0 48 48" fill="none">
-            <!-- Head -->
-            <circle cx="24" cy="18" r="10" stroke="currentColor" stroke-width="2.5"/>
-            <!-- Body arc -->
-            <path d="M8 44c0-8.837 7.163-16 16-16s16 7.163 16 16"
-                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-          </svg>
-          <!-- Speaking animation bars -->
-          <div class="speaking-bars" id="speaking-bars">
-            <span class="bar"></span>
-            <span class="bar"></span>
-            <span class="bar"></span>
-            <span class="bar"></span>
-            <span class="bar"></span>
-          </div>
-        </div>
-        <p id="status-text" class="status-text">Disconnected</p>
-      </div>
-
-      <!-- VAD indicator -->
-      <div class="vad-area">
-        <div id="vad-ring" class="vad-ring" aria-label="Voice activity indicator">
-          <svg class="mic-icon-sm" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="2" width="6" height="12" rx="3"/>
-            <path d="M5 10a7 7 0 0 0 14 0"/>
-            <line x1="12" y1="19" x2="12" y2="22"/>
-            <line x1="8" y1="22" x2="16" y2="22"/>
-          </svg>
-        </div>
-        <p class="vad-label" id="vad-label">Mic inactive</p>
-      </div>
-
-      <!-- Audio visualiser (waveform of mic input) -->
-      <canvas id="visualizer" class="visualizer" width="280" height="60" aria-hidden="true"></canvas>
-
-      <!-- Latency badge strip -->
-      <div class="latency-strip">
-        <div class="latency-badge">
-          <span class="badge-label">STT</span>
-          <span id="lat-stt" class="badge-value">--</span>
-        </div>
-        <div class="latency-badge">
-          <span class="badge-label">LLM</span>
-          <span id="lat-llm" class="badge-value">--</span>
-        </div>
-        <div class="latency-badge">
-          <span class="badge-label">TTS</span>
-          <span id="lat-tts" class="badge-value">--</span>
-        </div>
-        <div class="latency-badge accent">
-          <span class="badge-label">Total</span>
-          <span id="lat-total" class="badge-value">--</span>
-        </div>
-      </div>
-    </section>
-
+      <p class="party-name">మీరు</p>
+    </div>
   </main>
 
-  <!-- ============================================================
-       Footer
-  ============================================================ -->
-  <footer class="app-footer">
-    Silero VAD &nbsp;·&nbsp; faster-whisper &nbsp;·&nbsp;
-    vLLM / Llama-3-8B &nbsp;·&nbsp; Coqui XTTS v2
-  </footer>
+  <!-- Call controls -->
+  <div class="call-controls">
+    <!-- Green: start call -->
+    <button id="start-call-btn" class="start-call-btn" title="Start call">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+    </button>
+    <!-- Red: end call (hidden until call starts) -->
+    <button id="end-call-btn" class="end-call-btn" title="End call" style="display:none">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+    </button>
+  </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

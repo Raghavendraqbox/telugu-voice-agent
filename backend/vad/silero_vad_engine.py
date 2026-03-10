@@ -97,9 +97,11 @@ class VADEngine:
         self._pre_roll_max: int = self._min_speech_frames + 2
         self._utterance_chunks: list[bytes] = []  # confirmed utterance audio
 
-        # Silero model state (must be reset between utterances)
-        self._h = None
-        self._c = None
+        # Buffer for accumulating frames before VAD inference
+        # silero-vad v5 requires >= 512 samples; we buffer two 20ms frames (640)
+        self._vad_buffer: bytes = b""
+        self._vad_buffer_samples: int = 0
+        self._vad_min_samples: int = 512
 
     def load(self) -> None:
         """Load Silero VAD model onto CPU. Call once at startup."""
@@ -109,14 +111,10 @@ class VADEngine:
             from silero_vad import load_silero_vad
             self._model = load_silero_vad()
             self._model.eval()
-            # Reset LSTM state
-            self._reset_state()
             elapsed = (time.perf_counter() - start) * 1000
             logger.info(f"Silero VAD loaded in {elapsed:.0f}ms (CPU)")
         except ImportError:
-            logger.error(
-                "silero-vad not installed. Run: pip install silero-vad"
-            )
+            logger.error("silero-vad not installed. Run: pip install silero-vad")
             raise
         except Exception as exc:
             logger.error(f"Failed to load Silero VAD: {exc}")
@@ -130,7 +128,8 @@ class VADEngine:
         self._total_utterance_frames = 0
         self._pre_roll.clear()
         self._utterance_chunks.clear()
-        self._reset_state()
+        self._vad_buffer = b""
+        self._vad_buffer_samples = 0
 
     def process_chunk(self, pcm_int16_bytes: bytes) -> VADResult:
         """
@@ -155,17 +154,45 @@ class VADEngine:
         elif len(pcm_int16_bytes) > expected:
             pcm_int16_bytes = pcm_int16_bytes[:expected]
 
-        # Convert Int16 bytes → Float32 tensor in [-1, 1]
-        pcm_int16 = np.frombuffer(pcm_int16_bytes, dtype=np.int16)
-        audio_f32 = pcm_int16.astype(np.float32) / 32768.0
-        tensor = torch.from_numpy(audio_f32).unsqueeze(0)  # shape: [1, 320]
+        # Buffer incoming frames — silero-vad v5 requires EXACTLY 512 samples.
+        # Each frontend frame is 320 samples (20ms). We accumulate until we
+        # have >= 512, slice off exactly 512 for inference, keep remainder.
+        self._vad_buffer += pcm_int16_bytes
+        self._vad_buffer_samples = len(self._vad_buffer) // 2
 
-        # Run Silero VAD inference (CPU, ~0.5ms per frame)
-        with torch.no_grad():
-            speech_prob, self._h, self._c = self._model(
-                tensor, self._sample_rate, self._h, self._c
+        if self._vad_buffer_samples < self._vad_min_samples:
+            # Not enough samples yet — hold, no state change
+            return VADResult(
+                is_speech=False,
+                speech_prob=0.0,
+                speech_started=False,
+                speech_ended=False,
+                state=self._state,
+                utterance_audio=None,
             )
-        prob = float(speech_prob.item())
+
+        # Slice exactly 512 samples (1024 bytes), keep the rest
+        run_bytes = self._vad_buffer[:self._vad_min_samples * 2]
+        self._vad_buffer = self._vad_buffer[self._vad_min_samples * 2:]
+        self._vad_buffer_samples = len(self._vad_buffer) // 2
+
+        # Convert Int16 bytes → Float32 tensor in [-1, 1]
+        pcm_int16 = np.frombuffer(run_bytes, dtype=np.int16)
+        audio_f32 = pcm_int16.astype(np.float32) / 32768.0
+        tensor = torch.from_numpy(audio_f32).unsqueeze(0)  # shape: [1, 512]
+
+        # Run Silero VAD inference — v5 API: model(audio, sr) → Tensor
+        with torch.no_grad():
+            result = self._model(tensor, self._sample_rate)
+        prob = float(result.item())
+
+        # Debug: log every 25th inference to see live probability values
+        if not hasattr(self, '_dbg_count'):
+            self._dbg_count = 0
+        self._dbg_count += 1
+        if self._dbg_count % 25 == 0:
+            rms = float(np.sqrt(np.mean(audio_f32 ** 2)))
+            logger.debug(f"VAD prob={prob:.3f} rms={rms:.4f} state={self._state.value}")
 
         is_speech_frame = prob >= self._speech_threshold
         is_silence_frame = prob < self._silence_threshold
@@ -222,7 +249,6 @@ class VADEngine:
                 self._speech_frame_count = 0
                 self._silence_frame_count = 0
                 self._total_utterance_frames = 0
-                self._reset_state()
 
             # Hard cap: force end-of-utterance at maximum length
             elif self._total_utterance_frames >= self._max_utterance_frames:
@@ -237,7 +263,6 @@ class VADEngine:
                 self._speech_frame_count = 0
                 self._silence_frame_count = 0
                 self._total_utterance_frames = 0
-                self._reset_state()
 
         return VADResult(
             is_speech=is_speech_frame,
@@ -248,15 +273,3 @@ class VADEngine:
             utterance_audio=utterance_audio,
         )
 
-    # ------------------------------------------------------------------ #
-    # Internal helpers
-    # ------------------------------------------------------------------ #
-
-    def _reset_state(self) -> None:
-        """Reset Silero LSTM hidden/cell states for a fresh utterance."""
-        if self._model is not None:
-            self._h = torch.zeros(2, 1, 64)
-            self._c = torch.zeros(2, 1, 64)
-        else:
-            self._h = None
-            self._c = None
