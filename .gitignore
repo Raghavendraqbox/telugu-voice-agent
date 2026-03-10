@@ -1,0 +1,50 @@
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.env
+.venv
+venv/
+env/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Models cache
+models/
+*.pt
+*.pth
+*.bin
+*.safetensors
+.cache/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Claude Code internals (may contain tokens/settings)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio temp files
+*.wav
+*.mp3
+*.ogg
+tmp/

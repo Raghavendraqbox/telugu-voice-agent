@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telugu Voice Agent | తెలుగు వాయిస్ అసిస్టెంట్</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ============================================================
+       Header
+  ============================================================ -->
+  <header class="app-header">
+    <div class="header-inner">
+      <span class="logo-icon">&#127908;</span>
+      <div>
+        <h1 class="app-title">తెలుగు వాయిస్ అసిస్టెంట్</h1>
+        <p class="app-subtitle">Full-Duplex Phone Call Mode</p>
+      </div>
+      <div class="connection-area">
+        <span id="connection-dot" class="conn-dot disconnected" title="Connection status"></span>
+        <button id="connect-btn" class="btn btn-connect">Connect</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       Main layout
+  ============================================================ -->
+  <main class="app-main">
+
+    <!-- Transcript panel -->
+    <section class="panel transcript-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Conversation</h2>
+        <button id="clear-btn" class="btn btn-ghost btn-sm">Clear</button>
+      </div>
+      <div id="transcript" class="transcript-scroll">
+        <div class="transcript-empty">
+          Connect and start speaking in Telugu…
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls panel -->
+    <section class="panel controls-panel">
+
+      <!-- Agent avatar -->
+      <div class="avatar-area">
+        <div id="agent-avatar" class="agent-avatar">
+          <svg class="avatar-icon" viewBox="0 0 48 48" fill="none">
+            <!-- Head -->
+            <circle cx="24" cy="18" r="10" stroke="currentColor" stroke-width="2.5"/>
+            <!-- Body arc -->
+            <path d="M8 44c0-8.837 7.163-16 16-16s16 7.163 16 16"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <!-- Speaking animation bars -->
+          <div class="speaking-bars" id="speaking-bars">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+          </div>
+        </div>
+        <p id="status-text" class="status-text">Disconnected</p>
+      </div>
+
+      <!-- VAD indicator -->
+      <div class="vad-area">
+        <div id="vad-ring" class="vad-ring" aria-label="Voice activity indicator">
+          <svg class="mic-icon-sm" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="8" y1="22" x2="16" y2="22"/>
+          </svg>
+        </div>
+        <p class="vad-label" id="vad-label">Mic inactive</p>
+      </div>
+
+      <!-- Audio visualiser (waveform of mic input) -->
+      <canvas id="visualizer" class="visualizer" width="280" height="60" aria-hidden="true"></canvas>
+
+      <!-- Latency badge strip -->
+      <div class="latency-strip">
+        <div class="latency-badge">
+          <span class="badge-label">STT</span>
+          <span id="lat-stt" class="badge-value">--</span>
+        </div>
+        <div class="latency-badge">
+          <span class="badge-label">LLM</span>
+          <span id="lat-llm" class="badge-value">--</span>
+        </div>
+        <div class="latency-badge">
+          <span class="badge-label">TTS</span>
+          <span id="lat-tts" class="badge-value">--</span>
+        </div>
+        <div class="latency-badge accent">
+          <span class="badge-label">Total</span>
+          <span id="lat-total" class="badge-value">--</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================
+       Footer
+  ============================================================ -->
+  <footer class="app-footer">
+    Silero VAD &nbsp;·&nbsp; faster-whisper &nbsp;·&nbsp;
+    vLLM / Llama-3-8B &nbsp;·&nbsp; Coqui XTTS v2
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
